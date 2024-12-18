@@ -1,0 +1,3 @@
+[submodule "games/2048"]
+	path = games/2048
+	url = https://github.com/gabrielecirulli/2048.git
