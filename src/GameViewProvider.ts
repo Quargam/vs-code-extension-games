@@ -13,9 +13,7 @@ export class GameViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.options = {
       enableScripts: true,
     };
-
-    // Задаем HTML-контент для отображения панели
-    webviewView.webview.html = this.getWebviewContent();
+    webviewView.webview.html = fs.readFileSync(path.join(this.context.extensionPath, 'src', 'webviewViewGame.html'), 'utf-8');
 
     // Обработка сообщений из Webview
     webviewView.webview.onDidReceiveMessage((message) => {
@@ -27,30 +25,6 @@ export class GameViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  getWebviewContent(): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <body>
-        <h1>Game Panel</h1>
-        <button id="open2048">Play 2048</button>
-        <button id="openClumsyBird">Play Clumsy Bird</button>
-        <script>
-          const vscode = acquireVsCodeApi();
-          
-          document.getElementById('open2048').addEventListener('click', () => {
-            vscode.postMessage({ command: 'openGame', game: '2048' });
-          });
-          
-          document.getElementById('openClumsyBird').addEventListener('click', () => {
-            vscode.postMessage({ command: 'openGame', game: 'clumsyBird' });
-          });
-        </script>
-      </body>
-      </html>
-    `;
-  }
-
   openGameView(game: string) {
     let gameFolder = '';
   
@@ -60,6 +34,9 @@ export class GameViewProvider implements vscode.WebviewViewProvider {
         break;
       case 'clumsyBird':
         gameFolder = 'clumsy-bird';
+        break;
+      case 'hextris':
+        gameFolder = 'hextris';
         break;
       default:
         return;
@@ -76,71 +53,81 @@ export class GameViewProvider implements vscode.WebviewViewProvider {
     );
   
     panel.webview.html = this.getGameHtml(panel.webview, gameFolder);
-  }  
+  }
 
   getGameHtml(webview: vscode.Webview, gameFolder: string): string {
-    const gamePath = path.join(this.context.extensionPath, 'games', gameFolder);
-    const filePath = path.join(gamePath, 'index.html');
-  
-    // Читаем содержимое index.html
-    let htmlContent = fs.readFileSync(filePath, 'utf-8');
+    const basePath = path.join(this.context.extensionPath, 'games', gameFolder);
+    const filePath = path.join(basePath, 'index.html');
   
     // Функция для преобразования пути
-    const replacePaths = (content: string, basePath: string) => {
-      // CSS файлы
-      content = content.replace(/href="([^"]+\.css)"/g, (_, p1) => {
-        const newPath = webview.asWebviewUri(vscode.Uri.file(path.join(basePath, p1)));
-        return `href="${newPath}"`;
+    const replacePaths = (filePath: string, webview: vscode.Webview, basePath: string) => {
+      console.log(`обрабатывается файл: ${filePath}`);
+      let content = fs.readFileSync(filePath, 'utf-8');
+      console.log(`содержимое файл: ${content}`);
+      content = content.replace(/(href|src)="([^"]+)"/g, (_, attr, p1) => {
+        const originalPath = p1;
+        console.log(`найден файл: ${originalPath}`);
+        const fullPath = path.join(basePath, originalPath);
+        if (fs.existsSync(fullPath)) {
+          const newPath = webview.asWebviewUri(vscode.Uri.file(fullPath));
+          console.log(`${attr.toUpperCase()} путь изменен: ${originalPath} => ${newPath}`);
+          if (!(originalPath.endsWith('.png') || originalPath.endsWith('.svg') || originalPath.endsWith('.ico'))) {
+            replacePaths(fullPath, webview, basePath);
+          }
+          return `${attr}="${newPath}"`; // Учитываем оригинальный атрибут (href или src)
+        } else {
+          console.warn(`Файл не найден: ${originalPath}`);
+          return `${attr}="${originalPath}"`; // Учитываем оригинальный атрибут (href или src)
+        }
       });
-  
-      // JS файлы
-      content = content.replace(/src="([^"]+\.js)"/g, (_, p1) => {
-        const scriptPath = path.join(basePath, p1);
-        const newPath = webview.asWebviewUri(vscode.Uri.file(scriptPath));
-  
-        // Рекурсивно обрабатываем JS файл
-        this.processScript(scriptPath, webview, gamePath);
-  
-        return `src="${newPath}"`;
+
+      content = content.replace(/(href|src)='([^']+)'/g, (_, attr, p1) => {
+        const originalPath = p1;
+        console.log(`найден файл: ${originalPath}`);
+        const fullPath = path.join(basePath, originalPath);
+        if (fs.existsSync(fullPath)) {
+          const newPath = webview.asWebviewUri(vscode.Uri.file(fullPath));
+          console.log(`${attr.toUpperCase()} путь изменен: ${originalPath} => ${newPath}`);
+          if (!(originalPath.endsWith('.png') || originalPath.endsWith('.svg') || originalPath.endsWith('.ico'))) {
+            replacePaths(fullPath, webview, basePath);
+          }
+          return `${attr}='${newPath}'`; // Учитываем оригинальный атрибут (href или src)
+        } else {
+          console.warn(`Файл не найден: ${originalPath}`);
+          return `${attr}='${originalPath}'`; // Учитываем оригинальный атрибут (href или src)
+        }
       });
-  
-      // Изображения
-      content = content.replace(/src="([^"]+\.(jpg|jpeg|png|gif|ico))"/g, (_, p1) => {
-        const newPath = webview.asWebviewUri(vscode.Uri.file(path.join(basePath, p1)));
-        return `src="${newPath}"`;
+
+      content = content.replace(/src:\s*["']([^"']+)["']/g, (_, p1) => {
+        const originalPath = p1;
+        console.log(`Найден путь в JS: ${originalPath}`);
+        const fullPath = path.join(basePath, originalPath);
+        if (fs.existsSync(fullPath)) {
+          const newPath = webview.asWebviewUri(vscode.Uri.file(fullPath));
+          console.log(`SRC путь изменен: ${originalPath} => ${newPath}`);
+          return `src: "${newPath}"`;
+        } else {
+          console.warn(`Файл не найден: ${fullPath}`);
+          return `src: "${originalPath}"`; // Возвращаем оригинальный путь, если файл не найден
+        }
       });
-  
-      // Шрифты
-      content = content.replace(/href="([^"]+\.(woff|woff2|ttf|eot|svg))"/g, (_, p1) => {
-        const newPath = webview.asWebviewUri(vscode.Uri.file(path.join(basePath, p1)));
-        return `href="${newPath}"`;
+    
+      content = content.replace(/"src",\s*["']([^"']+)["']/g, (_, p1) => {
+        const originalPath = p1;
+        console.log(`Найден путь в JS: ${originalPath}`);
+        const fullPath = path.join(basePath, originalPath);
+        if (fs.existsSync(fullPath)) {
+          const newPath = webview.asWebviewUri(vscode.Uri.file(fullPath));
+          console.log(`SRC путь изменен: ${originalPath} => ${newPath}`);
+          return `"src", "${newPath}"`;
+        } else {
+          console.warn(`Файл не найден: ${fullPath}`);
+          return `"src", "${originalPath}"`; // Возвращаем оригинальный путь, если файл не найден
+        }
       });
-  
+      fs.writeFileSync(filePath, content, 'utf-8');
       return content;
     };
-  
-    // Обрабатываем HTML файл
-    htmlContent = replacePaths(htmlContent, gamePath);
-  
-    return htmlContent;
+    return replacePaths(filePath, webview, basePath);
   }
-  processScript(filePath: string, webview: vscode.Webview, gamePath: string): void {
-    if (!fs.existsSync(filePath)) {
-      console.warn(`Файл не найден: ${filePath}`);
-      return;
-    }
-  
-    const content = fs.readFileSync(filePath, 'utf-8');
-  
-    // Заменяем пути внутри JS для всех типов ресурсов
-    const updatedContent = content.replace(/(["'])(data\/[^"']+)(["'])/g, (match, quote, p1, p2) => {
-      // Создаем новый путь для файла
-      const newPath = webview.asWebviewUri(vscode.Uri.file(path.join(gamePath, p1)));
-      return `${quote}${newPath}${quote}`;
-    });
-  
-    // Перезаписываем файл с обновленным содержимым
-    fs.writeFileSync(filePath, updatedContent, 'utf-8');
-  }
-  
 }

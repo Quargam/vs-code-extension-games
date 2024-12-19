@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <h1>Game Panel</h1>
+  <button id="open2048">Play 2048</button>
+  <button id="openClumsyBird">Play Clumsy Bird</button>
+  <button id="openHextris">Play Hextris</button>
+  <script>
+    const vscode = acquireVsCodeApi();
+    
+    document.getElementById('open2048').addEventListener('click', () => {
+      vscode.postMessage({ command: 'openGame', game: '2048' });
+    });
+    
+    document.getElementById('openClumsyBird').addEventListener('click', () => {
+      vscode.postMessage({ command: 'openGame', game: 'clumsyBird' });
+    });
+
+    document.getElementById('openHextris').addEventListener('click', () => {
+      vscode.postMessage({ command: 'openGame', game: 'hextris' });
+    });
+  </script>
+</body>
+</html>

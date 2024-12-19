@@ -4,3 +4,6 @@
 [submodule "games/clumsy-bird"]
 	path = games/clumsy-bird
 	url = https://github.com/ellisonleao/clumsy-bird.git
+[submodule "games/hextris"]
+	path = games/hextris
+	url = https://github.com/Hextris/hextris.git
