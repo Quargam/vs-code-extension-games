@@ -1,3 +1,6 @@
 [submodule "games/2048"]
 	path = games/2048
 	url = https://github.com/gabrielecirulli/2048.git
+[submodule "games/clumsy-bird"]
+	path = games/clumsy-bird
+	url = https://github.com/ellisonleao/clumsy-bird.git
