@@ -7,3 +7,6 @@
 [submodule "games/hextris"]
 	path = games/hextris
 	url = https://github.com/Hextris/hextris.git
+[submodule "games/snake"]
+	path = games/snake
+	url = https://github.com/N1ghtF1re/snake.git

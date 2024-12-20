@@ -38,6 +38,9 @@ export class GameViewProvider implements vscode.WebviewViewProvider {
       case 'hextris':
         gameFolder = 'hextris';
         break;
+        case 'snake':
+          gameFolder = 'snake';
+          break;
       default:
         return;
     }
